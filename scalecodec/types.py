@@ -690,6 +690,18 @@ class KeyValue(Struct):
     type_mapping = (('key', 'Vec<u8>'), ('value', 'Vec<u8>'))
 
 
+class Signature(ScaleType):
+
+    def process(self):
+        return self.get_next_bytes(64).hex()
+
+
+class AuthoritySignature(ScaleType):
+
+    def process(self):
+        # TODO figure out where remaining data is missing..
+        return self.get_remaining_bytes().hex()
+        
 class BalanceOf(Balance):
     pass
 
