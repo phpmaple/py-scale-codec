@@ -1,5 +1,6 @@
 {
     "default": {
+        "Signature": "H512",
         "Price": "u128",
         "Token": {
             "type": "struct",
