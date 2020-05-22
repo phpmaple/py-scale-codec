@@ -9,24 +9,10 @@ https://github.com/pypa/sampleproject
 from setuptools import setup, find_packages
 from os import path, environ
 # io.open is needed for projects that support Python 2.7
-# It ensures open() defaults to text mode with universal newlines,
+# It ensures open() defaults to text mode with universal newlines   ,
 # and accepts an argument to specify the text encoding
 # Python 3 only projects can skip this import
 from io import open
-
-
-if environ.get('TRAVIS_TAG'):
-    version = environ['TRAVIS_TAG'].replace('v', '')
-elif environ.get('CI_COMMIT_TAG'):
-    version = environ['CI_COMMIT_TAG'].replace('v', '')
-elif environ.get('GITHUB_REF'):
-
-    if not environ['GITHUB_REF'].startswith('refs/tags/v'):
-        raise ValueError('Incorrect tag format {}'.format(environ['GITHUB_REF']))
-
-    version = environ['GITHUB_REF'].replace('refs/tags/v', '')
-else:
-    raise ValueError('Missing commit tag, can\'t set version')
 
 here = path.abspath(path.dirname(__file__))
 
@@ -57,7 +43,7 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version=version,  # Required
+    version='0.2.0',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -140,8 +126,9 @@ setup(
     #
     #   py_modules=["my_module"],
     #
-    #packages=find_packages(exclude=['contrib', 'docs', 'tests', 'test']),  # Required
-    packages=find_packages(exclude=['contrib', 'docs', 'tests', 'test']),  # Required
+    # packages=find_packages(exclude=['contrib', 'docs', 'tests', 'test']),  # Required
+    packages=find_packages(
+        exclude=['contrib', 'docs', 'tests', 'test']),  # Required
 
     # Specify which Python versions you support. In contrast to the
     # 'Programming Language' classifiers above, 'pip install' will check this
@@ -169,7 +156,7 @@ setup(
     # Similar to `install_requires` above, these must be valid existing
     # projects.
     extras_require={  # Optional
-        #'dev': ['check-manifest'],
+        # 'dev': ['check-manifest'],
         'test': ['coverage', 'pytest'],
     },
 
