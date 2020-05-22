@@ -1,6 +1,6 @@
 # Python SCALE Codec Library
 #
-# Copyright 2018-2019 openAware BV (NL).
+# Copyright 2018-2020 openAware BV (NL).
 # This file is part of Polkascan.
 #
 # Polkascan is free software: you can redistribute it and/or modify
@@ -36,6 +36,20 @@ class TestScaleTypeEncoding(unittest.TestCase):
 
         cls.metadata_decoder = MetadataDecoder(ScaleBytes(metadata_v10_hex))
         cls.metadata_decoder.decode()
+
+    def test_u16(self):
+        obj = ScaleDecoder.get_decoder_class('u16')
+        obj.encode(64302)
+        self.assertEqual(str(obj.data), "0x2efb")
+
+    def test_i16(self):
+        obj = ScaleDecoder.get_decoder_class('i16')
+        obj.encode(-1234)
+        self.assertEqual(str(obj.data), "0x2efb")
+
+    def test_i16_out_of_bounds(self):
+        obj = ScaleDecoder.get_decoder_class('i16')
+        self.assertRaises(ValueError, obj.encode, -32769)
 
     def test_compact_u32_1byte(self):
         obj = ScaleDecoder.get_decoder_class('Compact<u32>', ScaleBytes("0x18"))

@@ -1,7 +1,15 @@
 {
-  "default": {
-    "Keys": "SessionKeysSubstrate",
+  "types": {
+    "Keys": {
+      "type": "struct",
+      "type_mapping": [
+         ["grandpa", "AccountId"],
+         ["babe", "AccountId"]
+      ]
+    },
+    "Balance": "u128",
     "Index": "U32",
+    "Era": "[u8; 2]",
     "BlockNumber": "U32",
     "Range": {
       "type": "struct",
@@ -67,6 +75,14 @@
       "type_mapping": [
          ["proofs", "Vec<MerkleIntervalTreeInternalNode>"],
          ["idx", "u128"]
+      ]
+    },
+    "Parameters": {
+      "type": "struct",
+      "type_mapping": [
+         ["can_be_nominated", "bool"],
+         ["option_expired", "u128"],
+         ["option_p", "u32"]
       ]
     }
   }

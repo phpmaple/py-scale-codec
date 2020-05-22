@@ -42,7 +42,8 @@ class MetadataDecoder(ScaleDecoder):
                 "MetadataV7Decoder",
                 "MetadataV8Decoder",
                 "MetadataV9Decoder",
-                "MetadataV10Decoder"
+                "MetadataV10Decoder",
+                "MetadataV11Decoder"
             ])
 
             self.metadata = self.process_type(self.version.value)
@@ -113,7 +114,7 @@ class MetadataV4Decoder(ScaleDecoder):
 
 class MetadataV4Module(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.prefix = None
         self.call_index = None
@@ -125,7 +126,7 @@ class MetadataV4Module(ScaleType):
         self.events = None
         self.constants = []
         self.errors = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def get_identifier(self):
         return self.name.lower()
@@ -171,14 +172,14 @@ class MetadataV4Module(ScaleType):
 
 class MetadataV4ModuleStorage(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.modifier = None
         self.type = {}
         self.fallback = None
         self.docs = []
         self.hasher = None
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
 
@@ -331,14 +332,14 @@ class MetadataV5Module(ScaleType):
 
 
 class MetadataV5ModuleStorage(ScaleType):
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.modifier = None
         self.type = {}
         self.fallback = None
         self.docs = []
         self.hasher = None
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
 
@@ -434,7 +435,7 @@ class MetadataV6Decoder(ScaleDecoder):
 
 class MetadataV6Module(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.prefix = None
         self.call_index = None
@@ -446,7 +447,7 @@ class MetadataV6Module(ScaleType):
         self.events = None
         self.constants = []
         self.errors = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def get_identifier(self):
         return self.name.lower()
@@ -499,12 +500,12 @@ class MetadataV6ModuleStorage(MetadataV5ModuleStorage):
 
 class MetadataV6ModuleConstants(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.type = None
         self.constant_value = None
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
 
@@ -568,7 +569,7 @@ class MetadataV7Decoder(ScaleDecoder):
 
 class MetadataV7Module(MetadataV6Module):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.prefix = None
         self.call_index = None
@@ -580,7 +581,7 @@ class MetadataV7Module(MetadataV6Module):
         self.events = None
         self.constants = []
         self.errors = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
 
@@ -628,11 +629,11 @@ class MetadataV7Module(MetadataV6Module):
 
 class MetadataV7ModuleStorage(MetadataV6ModuleStorage):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.prefix = None
         self.items = []
 
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
 
@@ -645,16 +646,16 @@ class MetadataV7ModuleStorage(MetadataV6ModuleStorage):
         }
 
 
-class MetadataV7ModuleStorageEntry(ScaleDecoder):
+class MetadataV7ModuleStorageEntry(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.modifier = None
         self.type = {}
         self.fallback = None
         self.docs = []
         self.hasher = None
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
 
@@ -754,7 +755,7 @@ class MetadataV8Decoder(ScaleDecoder):
 
 class MetadataV8Module(MetadataV6Module):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.prefix = None
         self.call_index = None
@@ -766,7 +767,7 @@ class MetadataV8Module(MetadataV6Module):
         self.events = None
         self.constants = []
         self.errors = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
 
@@ -817,10 +818,10 @@ class MetadataV8Module(MetadataV6Module):
 
 class MetadataModuleError(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
 
@@ -919,6 +920,52 @@ class MetadataV10Decoder(ScaleDecoder):
                 event_module_index += 1
 
         result_data["metadata"]["MetadataV10"]["modules"] = [m.value for m in self.modules]
+
+        return result_data
+
+
+class MetadataV11Decoder(ScaleDecoder):
+
+    def __init__(self, data, sub_type=None):
+        self.version = None
+        self.modules = []
+        self.call_index = {}
+        self.event_index = {}
+
+        super().__init__(data, sub_type)
+
+    def process(self):
+        result_data = {
+            "magicNumber": 1635018093,  # struct.unpack('<L', bytearray.fromhex("6174656d")),
+            "metadata": {
+                "MetadataV11": {
+                    "modules": [],
+                }
+            }
+        }
+
+        self.modules = self.process_type('Vec<MetadataV8Module>').elements
+
+        # Build call and event index
+
+        call_module_index = 0
+        event_module_index = 0
+
+        for module in self.modules:
+            if module.calls is not None:
+                for call_index, call in enumerate(module.calls):
+                    call.lookup = "{:02x}{:02x}".format(call_module_index, call_index)
+                    self.call_index[call.lookup] = (module, call)
+                call_module_index += 1
+
+            if module.events is not None:
+                for event_index, event in enumerate(module.events):
+                    event.lookup = "{:02x}{:02x}".format(event_module_index, event_index)
+                    self.event_index[event.lookup] = (module, event)
+                event_module_index += 1
+
+        result_data["metadata"]["MetadataV11"]["modules"] = [m.value for m in self.modules]
+        result_data["metadata"]["MetadataV11"]["extrinsic"] = self.process_type("ExtrinsicMetadata").value
 
         return result_data
 
@@ -1118,10 +1165,10 @@ class MetadataV0Decoder(ScaleDecoder):
 
 class MetadataV0EventModule(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.events = None
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
         self.name = self.process_type('Bytes').value
@@ -1135,11 +1182,11 @@ class MetadataV0EventModule(ScaleType):
 
 class MetadataV0Event(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.args = []
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
         self.name = self.process_type('Bytes').value
@@ -1155,7 +1202,7 @@ class MetadataV0Event(ScaleType):
 
 class MetadataV0Module(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.prefix = None
         self.name = None
         self.call_name = None
@@ -1165,7 +1212,7 @@ class MetadataV0Module(ScaleType):
         self.storage = []
         self.constants = []
         self.errors = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     # TODO move to version agnostic superclass MetadataModule
     def get_identifier(self):
@@ -1207,12 +1254,12 @@ class MetadataV0Module(ScaleType):
 
 class MetadataV0ModuleFunction(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.id = None
         self.name = None
         self.args = []
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def get_identifier(self):
         return self.name
@@ -1233,13 +1280,13 @@ class MetadataV0ModuleFunction(ScaleType):
 
 class MetadataV0ModuleStorage(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.modifier = None
         self.type = {}
         self.fallback = None
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
         self.name = self.process_type('Bytes').value
@@ -1273,12 +1320,12 @@ class MetadataV0ModuleStorage(ScaleType):
 
 class MetadataV0Section(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.code = None
         self.id = None
 
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
         self.name = self.process_type('Bytes').value
@@ -1294,7 +1341,7 @@ class MetadataV0Section(ScaleType):
 
 class MetadataModule(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.prefix = None
         self.call_index = None
@@ -1306,7 +1353,7 @@ class MetadataModule(ScaleType):
         self.events = None
         self.constants = []
         self.errors = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def get_identifier(self):
         return self.name.lower()
@@ -1351,7 +1398,7 @@ class MetadataModule(ScaleType):
 
 class MetadataV1Module(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.prefix = None
         self.call_index = None
@@ -1363,7 +1410,7 @@ class MetadataV1Module(ScaleType):
         self.events = None
         self.constants = []
         self.errors = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def get_identifier(self):
         return self.name.lower()
@@ -1408,13 +1455,13 @@ class MetadataV1Module(ScaleType):
 
 class MetadataModuleStorage(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.modifier = None
         self.type = {}
         self.fallback = None
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
         self.name = self.process_type('Bytes').value
@@ -1451,13 +1498,13 @@ class MetadataModuleStorage(ScaleType):
 
 class MetadataV1ModuleStorage(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.modifier = None
         self.type = {}
         self.fallback = None
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
         self.name = self.process_type('Bytes').value
@@ -1493,11 +1540,11 @@ class MetadataV1ModuleStorage(ScaleType):
 
 class MetadataModuleCall(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.args = []
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def get_identifier(self):
         return self.name
@@ -1518,11 +1565,11 @@ class MetadataModuleCall(ScaleType):
 
 class MetadataModuleCallArgument(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.type = None
 
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
         self.name = self.process_type('Bytes').value
@@ -1536,11 +1583,11 @@ class MetadataModuleCallArgument(ScaleType):
 
 class MetadataModuleEvent(ScaleType):
 
-    def __init__(self, data, sub_type=None):
+    def __init__(self, data, sub_type=None, **kwargs):
         self.name = None
         self.args = []
         self.docs = []
-        super().__init__(data, sub_type)
+        super().__init__(data, sub_type, **kwargs)
 
     def process(self):
         self.name = self.process_type('Bytes').value

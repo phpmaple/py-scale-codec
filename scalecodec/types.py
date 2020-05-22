@@ -1,6 +1,6 @@
 # Python SCALE Codec Library
 #
-# Copyright 2018-2019 openAware BV (NL).
+# Copyright 2018-2020 openAware BV (NL).
 # This file is part of Polkascan.
 #
 # Polkascan is free software: you can redistribute it and/or modify
@@ -18,6 +18,7 @@
 
 from datetime import datetime
 from scalecodec.base import ScaleType, ScaleBytes
+from scalecodec.exceptions import InvalidScaleTypeValueException
 
 
 class Compact(ScaleType):
@@ -29,8 +30,10 @@ class Compact(ScaleType):
 
     def process_compact_bytes(self):
         compact_byte = self.get_next_bytes(1)
-
-        byte_mod = compact_byte[0] % 4
+        try:
+            byte_mod = compact_byte[0] % 4
+        except IndexError:
+            raise InvalidScaleTypeValueException("Invalid byte for Compact")
 
         if byte_mod == 0:
             self.compact_length = 1
@@ -66,6 +69,8 @@ class Compact(ScaleType):
             return self.compact_bytes
 
     def process_encode(self, value):
+
+        value = int(value)
 
         if value <= 0b00111111:
             return ScaleBytes(bytearray(int(value << 2).to_bytes(1, 'little')))
@@ -220,13 +225,23 @@ class HexBytes(ScaleType):
         return data
 
 
+class CallBytes(ScaleType):
+
+    def process(self):
+        raise NotImplementedError()
+
+    def process_encode(self, value):
+        return bytes.fromhex(value[2:])
+
+
 class U8(ScaleType):
 
     def process(self):
         return self.get_next_u8()
 
     def process_encode(self, value):
-        if 0 <= value <= 2**8 - 1:
+
+        if 0 <= int(value) <= 2**8 - 1:
             return ScaleBytes(bytearray(int(value).to_bytes(1, 'little')))
         else:
             raise ValueError('{} out of range for u8'.format(value))
@@ -238,7 +253,8 @@ class U16(ScaleType):
         return int.from_bytes(self.get_next_bytes(2), byteorder='little')
 
     def process_encode(self, value):
-        if 0 <= value <= 2**16 - 1:
+
+        if 0 <= int(value) <= 2**16 - 1:
             return ScaleBytes(bytearray(int(value).to_bytes(2, 'little')))
         else:
             raise ValueError('{} out of range for u16'.format(value))
@@ -250,7 +266,8 @@ class U32(ScaleType):
         return int.from_bytes(self.get_next_bytes(4), byteorder='little')
 
     def process_encode(self, value):
-        if 0 <= value <= 2**32 - 1:
+
+        if 0 <= int(value) <= 2**32 - 1:
             return ScaleBytes(bytearray(int(value).to_bytes(4, 'little')))
         else:
             raise ValueError('{} out of range for u32'.format(value))
@@ -262,7 +279,8 @@ class U64(ScaleType):
         return int(int.from_bytes(self.get_next_bytes(8), byteorder='little'))
 
     def process_encode(self, value):
-        if 0 <= value <= 2**64 - 1:
+
+        if 0 <= int(value) <= 2**64 - 1:
             return ScaleBytes(bytearray(int(value).to_bytes(8, 'little')))
         else:
             raise ValueError('{} out of range for u64'.format(value))
@@ -274,10 +292,89 @@ class U128(ScaleType):
         return int(int.from_bytes(self.get_next_bytes(16), byteorder='little'))
 
     def process_encode(self, value):
-        if 0 <= value <= 2**128 - 1:
+
+        if 0 <= int(value) <= 2**128 - 1:
             return ScaleBytes(bytearray(int(value).to_bytes(16, 'little')))
         else:
             raise ValueError('{} out of range for u128'.format(value))
+
+
+class I8(ScaleType):
+
+    def process(self):
+        return int.from_bytes(self.get_next_bytes(1), byteorder='little', signed=True)
+
+    def process_encode(self, value):
+
+        if -128 <= int(value) <= 127:
+            return ScaleBytes(bytearray(int(value).to_bytes(1, 'little', signed=True)))
+        else:
+            raise ValueError('{} out of range for i8'.format(value))
+
+
+class I16(ScaleType):
+
+    def process(self):
+        return int.from_bytes(self.get_next_bytes(2), byteorder='little', signed=True)
+
+    def process_encode(self, value):
+
+        if -32768 <= int(value) <= 32767:
+            return ScaleBytes(bytearray(int(value).to_bytes(2, 'little', signed=True)))
+        else:
+            raise ValueError('{} out of range for i16'.format(value))
+
+
+class I32(ScaleType):
+
+    def process(self):
+        return int.from_bytes(self.get_next_bytes(4), byteorder='little', signed=True)
+
+    def process_encode(self, value):
+
+        if -2147483648 <= int(value) <= 2147483647:
+            return ScaleBytes(bytearray(int(value).to_bytes(4, 'little', signed=True)))
+        else:
+            raise ValueError('{} out of range for i32'.format(value))
+
+
+class I64(ScaleType):
+
+    def process(self):
+        return int.from_bytes(self.get_next_bytes(8), byteorder='little', signed=True)
+
+    def process_encode(self, value):
+
+        if -2**64 <= int(value) <= 2**64-1:
+            return ScaleBytes(bytearray(int(value).to_bytes(8, 'little', signed=True)))
+        else:
+            raise ValueError('{} out of range for i64'.format(value))
+
+
+class I128(ScaleType):
+
+    def process(self):
+        return int.from_bytes(self.get_next_bytes(16), byteorder='little', signed=True)
+
+    def process_encode(self, value):
+
+        if -2**128 <= int(value) <= 2**128-1:
+            return ScaleBytes(bytearray(int(value).to_bytes(16, 'little', signed=True)))
+        else:
+            raise ValueError('{} out of range for i128'.format(value))
+
+
+class I256(ScaleType):
+
+    def process(self):
+        return int.from_bytes(self.get_next_bytes(32), byteorder='little', signed=True)
+
+    def process_encode(self, value):
+
+        if -2**256 <= int(value) <= 2**256-1:
+            return ScaleBytes(bytearray(int(value).to_bytes(32, 'little', signed=True)))
+        else:
+            raise ValueError('{} out of range for i256'.format(value))
 
 
 class H160(ScaleType):
@@ -286,7 +383,7 @@ class H160(ScaleType):
         return '0x{}'.format(self.get_next_bytes(20).hex())
 
     def process_encode(self, value):
-        if value[0:2] != '0x' and len(value) == 22:
+        if value[0:2] != '0x' or len(value) != 42:
             raise ValueError('Value should start with "0x" and should be 20 bytes long')
         return ScaleBytes(value)
 
@@ -297,7 +394,7 @@ class H256(ScaleType):
         return '0x{}'.format(self.get_next_bytes(32).hex())
 
     def process_encode(self, value):
-        if value[0:2] != '0x' and len(value) == 66:
+        if value[0:2] != '0x' or len(value) != 66:
             raise ValueError('Value should start with "0x" and should be 32 bytes long')
         return ScaleBytes(value)
 
@@ -308,7 +405,7 @@ class H512(ScaleType):
         return '0x{}'.format(self.get_next_bytes(64).hex())
 
     def process_encode(self, value):
-        if value[0:2] != '0x' and len(value) == 130:
+        if value[0:2] != '0x' or len(value) != 130:
             raise ValueError('Value should start with "0x" and should be 64 bytes long')
         return ScaleBytes(value)
 
@@ -334,6 +431,18 @@ class VecU8Length32(ScaleType):
     def process_encode(self, value):
         if value[0:2] != '0x' and len(value) == 66:
             raise ValueError('Value should start with "0x" and should be 32 bytes long')
+        return ScaleBytes(value)
+
+
+class VecU8Length20(ScaleType):
+    type_string = '[u8; 20]'
+
+    def process(self):
+        return '0x{}'.format(self.get_next_bytes(20).hex())
+
+    def process_encode(self, value):
+        if value[0:2] != '0x' and len(value) == 42:
+            raise ValueError('Value should start with "0x" and should be 20 bytes long')
         return ScaleBytes(value)
 
 
@@ -401,6 +510,44 @@ class VecU8Length2(ScaleType):
         return ScaleBytes(value)
 
 
+class VecH256Length3(ScaleType):
+    type_string = '[H256; 3]'
+
+    def process(self):
+        return [self.process_type('H256').value, self.process_type('H256').value, self.process_type('H256').value]
+
+    def process_encode(self, value):
+        if type(value) is not list:
+            raise ValueError("Provided value is not a list")
+
+        data = None
+
+        for element in value:
+            element_obj = self.get_decoder_class('H256', metadata=self.metadata)
+            data += element_obj.encode(element)
+
+        return data
+
+
+class VecU128Length3(ScaleType):
+    type_string = '[u128; 3]'
+
+    def process(self):
+        return [self.process_type('u128').value, self.process_type('u128').value, self.process_type('u128').value]
+
+    def process_encode(self, value):
+        if type(value) is not list:
+            raise ValueError("Provided value is not a list")
+
+        data = None
+
+        for element in value:
+            element_obj = self.get_decoder_class('u128', metadata=self.metadata)
+            data += element_obj.encode(element)
+
+        return data
+
+
 class Struct(ScaleType):
 
     def __init__(self, data, type_mapping=None, **kwargs):
@@ -443,16 +590,18 @@ class Struct(ScaleType):
 
 class Set(ScaleType):
     value_list = []
+    value_type = 'u64'
 
     def __init__(self, data, value_list=None, **kwargs):
         self.set_value = None
+
         if value_list:
             self.value_list = value_list
 
         super().__init__(data, **kwargs)
 
     def process(self):
-        self.set_value = self.process_type('u64').value
+        self.set_value = self.process_type(self.value_type).value
         result = []
         if self.set_value > 0:
 
@@ -470,10 +619,9 @@ class Set(ScaleType):
             if item in value:
                 result += set_mask
 
-        u64_obj = self.get_decoder_class('u64')
+        u64_obj = self.get_decoder_class(self.value_type)
 
         return u64_obj.encode(result)
-
 
 
 class Era(ScaleType):
@@ -485,6 +633,12 @@ class Era(ScaleType):
             return option_byte
         else:
             return option_byte + self.get_next_bytes(1).hex()
+
+    def process_encode(self, value):
+        if value == '00':
+            return ScaleBytes('0x00')
+        else:
+            raise NotImplementedError('Mortal Era not implemented')
 
 
 class EraIndex(U32):
@@ -706,16 +860,8 @@ class BalanceOf(Balance):
     pass
 
 
-class BlockNumber(U64):
-    pass
-
-
 class NewAccountOutcome(CompactU32):
     type_string = 'NewAccountOutcome'
-
-
-class Index(U64):
-    pass
 
 
 class Vec(ScaleType):
@@ -729,7 +875,7 @@ class Vec(ScaleType):
 
         result = []
         for _ in range(0, element_count):
-            element = self.process_type(self.sub_type)
+            element = self.process_type(self.sub_type, metadata=self.metadata)
             self.elements.append(element)
             result.append(element.value)
 
@@ -814,7 +960,7 @@ class Address(ScaleType):
 
         if type(value) == str and value[0:2] != '0x':
             # Assume SS58 encoding address
-            if len(value) == 47:
+            if len(value) >= 46:
                 from scalecodec.utils.ss58 import ss58_decode
                 value = '0x{}'.format(ss58_decode(value))
             else:
@@ -836,6 +982,34 @@ class Address(ScaleType):
             return '0x{}'.format(self.value)
         else:
             return self.value
+
+
+class AccountIdAddress(Address):
+
+    def process(self):
+        self.account_id = self.process_type('AccountId').value.replace('0x', '')
+        self.account_length = 'ff'
+        return self.account_id
+
+    def process_encode(self, value):
+        if type(value) == str and value[0:2] != '0x':
+            # Assume SS58 encoding address
+            if len(value) >= 46:
+                from scalecodec.utils.ss58 import ss58_decode
+                value = '0x{}'.format(ss58_decode(value))
+            else:
+                from scalecodec.utils.ss58 import ss58_decode_account_index
+                index_obj = AccountIndex()
+                value = index_obj.encode(ss58_decode_account_index(value))
+
+        if type(value) == str and value[0:2] == '0x' and len(value) == 66:
+            # value is AccountId
+            return ScaleBytes('0x{}'.format(value[2:]))
+        elif type(value) == int:
+            # value is AccountIndex
+            raise NotImplementedError('Encoding of AccountIndex Adresses not supported yet')
+        else:
+            raise ValueError('Value is in unsupported format, expected 32 bytes hex-string for AccountIds or int for AccountIndex')
 
 
 class RawAddress(Address):
@@ -1107,32 +1281,13 @@ class StoredPendingChange(Struct):
     )
 
 
-class OffenceDetails(Struct):
-    type_mapping = (
-        ('offender', 'Offender'),
-        ('reporters', 'Vec<Reporter>'),
-    )
-
-
-class VestingSchedule(Struct):
-    type_mapping = (
-        ('offset', 'Balance'),
-        ('perBlock', 'Balance'),
-        ('startingBlock', 'BlockNumber'),
-    )
-
-
-class Reporter(AccountId):
-    pass
-
-
 class ReportIdOf(Hash):
     pass
 
 
 class StorageHasher(Enum):
 
-    value_list = ['Blake2_128', 'Blake2_256', 'Blake2_128Concat', 'Twox128', 'Twox256', 'Twox64Concat']
+    value_list = ['Blake2_128', 'Blake2_256', 'Blake2_128Concat', 'Twox128', 'Twox256', 'Twox64Concat', 'Identity']
 
     def is_blake2_128(self):
         return self.index == 0
@@ -1151,6 +1306,9 @@ class StorageHasher(Enum):
 
     def is_twox64_concat(self):
         return self.index == 5
+
+    def is_identity(self):
+        return self.index == 6
 
 
 class VoterInfo(Struct):
@@ -1303,11 +1461,6 @@ class BalanceLock(Struct):
     )
 
 
-class WithdrawReasons(Enum):
-
-    value_list = ['TransactionPayment', 'Transfer', 'Reserve', 'Fee']
-
-
 class Bidder(Enum):
     type_string = 'Bidder<AccountId, ParaIdOf>'
 
@@ -1375,24 +1528,12 @@ class StoredState(Enum):
     value_list = ['Live', 'PendingPause', 'Paused', 'PendingResume']
 
 
-class UncleEntryItem(Enum):
-    value_list = ['InclusionHeight', 'Uncle']
-
-
 class Votes(Struct):
     type_mapping = (
         ('index', 'ProposalIndex'),
         ('threshold', 'MemberCount'),
         ('ayes', 'Vec<AccountId>'),
         ('nays', 'Vec<AccountId>'),
-    )
-
-
-class WinningDataEntry(Struct):
-    type_mapping = (
-        ('AccountId', 'AccountId'),
-        ('ParaIdOf', 'ParaIdOf'),
-        ('BalanceOf', 'BalanceOf'),
     )
 
 # Edgeware types

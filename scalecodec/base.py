@@ -1,6 +1,6 @@
 # Python SCALE Codec Library
 #
-# Copyright 2018-2019 openAware BV (NL).
+# Copyright 2018-2020 openAware BV (NL).
 # This file is part of Polkascan.
 #
 # Polkascan is free software: you can redistribute it and/or modify
@@ -33,70 +33,125 @@ class Singleton(type):
 
 class RuntimeConfiguration(metaclass=Singleton):
 
-    type_registry = {}
-    active_spec_version_id = 'default'
-
     @classmethod
     def all_subclasses(cls, class_):
         return set(class_.__subclasses__()).union(
             [s for c in class_.__subclasses__() for s in cls.all_subclasses(c)])
 
     def __init__(self):
-        self.type_registry['default'] = {cls.type_string.lower(): cls for cls in self.all_subclasses(ScaleDecoder) if cls.type_string}
-        self.type_registry['default'].update({cls.__name__.lower(): cls for cls in self.all_subclasses(ScaleDecoder)})
+        self.type_registry = {}
+        self.clear_type_registry()
+        self.active_spec_version_id = None
 
     def get_decoder_class(self, type_string, spec_version_id='default'):
-        # TODO move ScaleDecoder.get_decoder_class logic to here
-        decoder_class = self.type_registry.get(str(spec_version_id), {}).get(type_string.lower(), None)
 
-        if decoder_class:
-            return decoder_class
-        else:
-            return self.type_registry.get('default', {}).get(type_string.lower(), None)
+        decoder_class = self.type_registry.get('types', {}).get(type_string.lower(), None)
 
-    def update_type_registry(self, type_registry):
+        if not decoder_class:
+
+            # Type string containg subtype
+            if type_string[-1:] == '>':
+
+                # Extract sub types
+                type_parts = re.match(r'^([^<]*)<(.+)>$', type_string)
+
+                if type_parts:
+                    type_parts = type_parts.groups()
+
+                if type_parts:
+                    # Create dynamic class for Part1<Part2> based on Part1 and set class variable Part2 as sub_type
+                    base_class = self.type_registry.get('types', {}).get(type_parts[0].lower(), None)
+                    if base_class:
+                        decoder_class = type(type_string, (base_class,), {'sub_type': type_parts[1]})
+
+            # Custom tuples
+            elif type_string != '()' and type_string[0] == '(' and type_string[-1] == ')':
+                decoder_class = RuntimeConfiguration().get_decoder_class('struct')
+                decoder_class.type_string = type_string
+
+                decoder_class.build_type_mapping()
+
+            elif type_string[0] == '[' and type_string[-1] == ']':
+                type_parts = re.match(r'^\[([A-Za-z0-9]+); ([0-9]+)\]$', type_string)
+
+                if type_parts:
+                    type_parts = type_parts.groups()
+
+                if type_parts:
+                    # Create dynamic class for e.g. [u8; 4] resulting in array of u8 with 4 elements
+                    decoder_class = type(type_string, (FixedLengthArray,), {
+                        'sub_type': type_parts[0],
+                        'element_count': int(type_parts[1])
+                    })
+
+        return decoder_class
+
+    def clear_type_registry(self):
+        self.type_registry = {'types': {cls.type_string.lower(): cls for cls in self.all_subclasses(ScaleDecoder) if
+                                        cls.type_string}}
+        self.type_registry['types'].update({cls.__name__.lower(): cls for cls in self.all_subclasses(ScaleDecoder)})
+
+    def update_type_registry_types(self, types_dict):
         from scalecodec.types import Enum, Struct, Set
 
-        for spec_version_id, type_mapping in type_registry.items():
+        for type_string, decoder_class_data in types_dict.items():
 
-            if spec_version_id not in self.type_registry:
-                self.type_registry[spec_version_id] = {}
+            if type(decoder_class_data) == dict:
 
-            for type_string, decoder_class_data in type_mapping.items():
+                # Create dynamic decoder class
+                if decoder_class_data['type'] == 'struct':
 
-                if type(decoder_class_data) == dict:
-                    # Create dynamic decoder class
-                    if decoder_class_data['type'] == 'struct':
+                    decoder_class = type(type_string, (Struct,), {'type_mapping': decoder_class_data['type_mapping']})
 
-                        decoder_class = type(type_string, (Struct,), {'type_mapping': decoder_class_data['type_mapping']})
+                elif decoder_class_data['type'] == 'enum':
 
-                    elif decoder_class_data['type'] == 'enum':
+                    decoder_class = type(type_string, (Enum,), {
+                        'value_list': decoder_class_data.get('value_list'),
+                        'type_mapping': decoder_class_data.get('type_mapping')
+                    })
 
-                        decoder_class = type(type_string, (Enum,), {
-                            'value_list': decoder_class_data.get('value_list'),
-                            'type_mapping': decoder_class_data.get('type_mapping')
-                        })
+                elif decoder_class_data['type'] == 'set':
 
-                    elif decoder_class_data['type'] == 'set':
+                    decoder_class = type(type_string, (Set,), {
+                        'value_list': decoder_class_data.get('value_list'),
+                        'value_type': decoder_class_data.get('value_type', 'u64')
+                    })
 
-                        decoder_class = type(type_string, (Set,), {
-                            'value_list': decoder_class_data.get('value_list'),
-                        })
-
-                    else:
-                        raise NotImplementedError("Dynamic decoding type '{}' not supported".format(
-                            decoder_class_data['type'])
-                        )
                 else:
-                    decoder_class = self.get_decoder_class(decoder_class_data, spec_version_id)
+                    raise NotImplementedError("Dynamic decoding type '{}' not supported".format(
+                        decoder_class_data['type'])
+                    )
+            else:
+                decoder_class = self.get_decoder_class(decoder_class_data)
 
-                self.type_registry[spec_version_id][type_string.lower()] = decoder_class
+            self.type_registry['types'][type_string.lower()] = decoder_class
 
-    def set_type_registry(self, spec_version_id, type_mapping):
-        self.type_registry[spec_version_id] = type_mapping
+    def update_type_registry(self, type_registry):
 
-    def override_type_registry(self, type_string, decoder_class, spec_version_id='default'):
-        self.type_registry[spec_version_id][type_string.lower()] = decoder_class
+        # Set runtime ID if set
+        self.active_spec_version_id = type_registry.get('runtime_id')
+
+        # Set versioning
+        if 'versioning' in type_registry:
+            self.type_registry['versioning'] = type_registry.get('versioning')
+
+        # Update types
+        if 'types' in type_registry:
+            self.update_type_registry_types(type_registry.get('types'))
+
+    def set_active_spec_version_id(self, spec_version_id):
+
+        if spec_version_id != self.active_spec_version_id:
+
+            self.active_spec_version_id = spec_version_id
+
+            # Updated type registry with versioned types
+            for versioning_item in self.type_registry.get('versioning', []):
+                # Check if versioning item is in current version range
+                if versioning_item['runtime_range'][0] <= spec_version_id and \
+                        (not versioning_item['runtime_range'][1] or versioning_item['runtime_range'][1] >= spec_version_id):
+                    # Update types in type registry
+                    self.update_type_registry_types(versioning_item['types'])
 
 
 class ScaleBytes:
@@ -154,9 +209,15 @@ class ScaleDecoder(ABC):
 
     debug = False
 
+    sub_type = None
+
+    PRIMITIVES = ('bool', 'u8', 'u16', 'u32', 'u64', 'u128', 'u256', 'i8', 'i16', 'i32', 'i64', 'i128', 'i256', 'h160',
+                  'h256', 'h512', '[u8; 4]', '[u8; 4]', '[u8; 8]', '[u8; 16]', '[u8; 32]', '&[u8]')
+
     def __init__(self, data, sub_type=None):
 
-        self.sub_type = sub_type
+        if sub_type:
+            self.sub_type = sub_type
 
         if self.type_mapping is None and self.type_string:
             self.build_type_mapping()
@@ -173,9 +234,19 @@ class ScaleDecoder(ABC):
 
         if cls.type_string and cls.type_string[0] == '(' and cls.type_string[-1] == ')':
             type_mapping = ()
+
+            tuple_contents = cls.type_string[1:-1]
+
+            # replace subtype types
+            sub_types = re.search(r'([A-Za-z]+[<][^>]*[>])', tuple_contents)
+            if sub_types:
+                sub_types = sub_types.groups()
+                for sub_type in sub_types:
+                    tuple_contents = tuple_contents.replace(sub_type, sub_type.replace(',', '|'))
+
             n = 1
-            for struct_element in cls.type_string[1:-1].split(','):
-                type_mapping += (('col{}'.format(n), struct_element.strip()),)
+            for struct_element in tuple_contents.split(','):
+                type_mapping += (('col{}'.format(n), struct_element.strip().replace('|', ',')),)
                 n += 1
 
             cls.type_mapping = type_mapping
@@ -209,12 +280,17 @@ class ScaleDecoder(ABC):
         if check_remaining and self.data.offset != self.data.length:
             raise RemainingScaleBytesNotEmptyException('Current offset: {} / length: {}'.format(self.data.offset, self.data.length))
 
+        if self.data.offset > self.data.length:
+            raise RemainingScaleBytesNotEmptyException(
+                'No more bytes available (offset: {} / length: {})'.format(self.data.offset, self.data.length))
+
         return self.value
 
     def __str__(self):
         return str(self.value) or ''
 
     def encode(self, value):
+        self.value = value
         self.data = self.process_encode(value)
         return self.data
 
@@ -223,6 +299,12 @@ class ScaleDecoder(ABC):
 
     @classmethod
     def get_decoder_class(cls, type_string, data=None, **kwargs):
+        """
+        :param type_string:
+        :param data:
+        :param kwargs:
+        :return: ScaleType
+        """
 
         type_parts = None
 
@@ -239,7 +321,10 @@ class ScaleDecoder(ABC):
                 return decoder_class(data, **kwargs)
 
             # Extract sub types
-            type_parts = re.match(r'^([^<]*)<(.+)>$', type_string).groups()
+            type_parts = re.match(r'^([^<]*)<(.+)>$', type_string)
+
+            if type_parts:
+                type_parts = type_parts.groups()
 
         if type_parts:
             decoder_class = RuntimeConfiguration().get_decoder_class(
@@ -289,10 +374,11 @@ class ScaleDecoder(ABC):
         name = re.sub(r'<T>', "", name)
         name = re.sub(r'<T as Trait>::', "", name)
         name = re.sub(r'\n', "", name)
+        name = re.sub(r'(grandpa|session|slashing)::', "", name)
 
         if name == '()':
             return "Null"
-        if name == 'Vec<u8>':
+        if name in ['Vec<u8>', '&[u8]']:
             return "Bytes"
         if name == '<Lookup as StaticLookup>::Source':
             return 'Address'
@@ -308,6 +394,8 @@ class ScaleDecoder(ABC):
             return 'Compact<Moment>'
         if name == '<InherentOfflineReport as InherentOfflineReport>::Inherent':
             return 'InherentOfflineReport'
+        if name == 'RawAddress':
+            return 'Address'
 
         return name
 
@@ -320,3 +408,32 @@ class ScaleType(ScaleDecoder, ABC):
         if not data:
             data = ScaleBytes(bytearray())
         super().__init__(data, sub_type)
+
+
+class FixedLengthArray(ScaleType):
+
+    element_count = 0
+
+    def process(self):
+        result = []
+
+        if self.element_count:
+
+            for idx in range(self.element_count):
+                result.append(self.process_type(self.sub_type).value)
+        else:
+            self.get_next_u8()
+
+        return result
+
+    def process_encode(self, value):
+        data = ScaleBytes(bytearray())
+
+        if not type(value) is list:
+            raise ValueError('Given value is not a list')
+
+        for element_value in value:
+            element_obj = self.get_decoder_class(self.sub_type, metadata=self.metadata)
+            data += element_obj.encode(element_value)
+
+        return data
